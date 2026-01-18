@@ -1,0 +1,1137 @@
+/* JSON Schema Store GUI - 主样式文件 */
+
+/* 基础变量 */
+:root {
+    --primary-color: var(--vscode-button-background);
+    --primary-hover: var(--vscode-button-hoverBackground);
+    --secondary-color: var(--vscode-button-secondaryBackground);
+    --border-color: var(--vscode-panel-border);
+    --background-color: var(--vscode-editor-background);
+    --foreground-color: var(--vscode-foreground);
+    --error-color: var(--vscode-errorForeground);
+    --warning-color: var(--vscode-warningForeground);
+    --success-color: var(--vscode-testing-iconPassed);
+    --divider-width: 4px;
+}
+
+/* 基础样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* 头部样式 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--vscode-editor-background);
+    flex-shrink: 0;
+}
+
+.header-left {
+    flex: 1;
+}
+
+.header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--vscode-foreground);
+}
+
+.schema-description {
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.bound-source {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.header-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Settings 搜索框（尽量贴近 VS Code Settings 风格） */
+.settings-topbar {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--vscode-editor-background);
+    flex-shrink: 0;
+}
+
+.settings-search-wrapper {
+    position: relative;
+    width: min(960px, 100%);
+    margin: 0 auto;
+}
+
+.settings-search-input {
+    width: 100%;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: 13px;
+    outline: none;
+}
+
+.settings-search-input:focus {
+    border-color: var(--vscode-focusBorder, var(--primary-color));
+}
+
+.settings-search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 360px;
+    overflow: auto;
+    background-color: var(--vscode-quickInput-background, var(--vscode-editorWidget-background));
+    border: 1px solid var(--vscode-widget-border, var(--border-color));
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+    z-index: 2000;
+}
+
+.settings-search-results.hidden {
+    display: none;
+}
+
+.settings-search-result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-search-result:last-child {
+    border-bottom: none;
+}
+
+.settings-search-result:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.settings-search-result.active {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+.settings-search-result-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.settings-search-result-meta {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.2;
+}
+
+.settings-search-result.active .settings-search-result-meta {
+    color: var(--vscode-list-activeSelectionForeground);
+    opacity: 0.9;
+}
+
+.settings-search-empty {
+    padding: 10px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+/* 主内容区域 */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 编辑器面板 */
+.editor-panel,
+.form-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.editor-panel {
+    flex: 1;
+    border-right: 1px solid var(--border-color);
+}
+
+.form-panel {
+    flex: 1;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--vscode-editor-background);
+    flex-shrink: 0;
+}
+
+.panel-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.panel-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.editor-container,
+.form-container {
+    flex: 1;
+    padding: 16px;
+}
+
+.form-container {
+    /* 让右侧内容面板自己滚动，避免把 sidebar 一起滚走 */
+    overflow: hidden;
+    padding: 0;
+}
+
+.json-editor {
+    width: 100%;
+    height: 100%;
+    font-family: var(--vscode-editor-font-family);
+    font-size: var(--vscode-editor-font-size);
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    padding: 12px;
+    resize: none;
+    outline: none;
+    line-height: 1.4;
+}
+
+.json-editor:focus {
+    border-color: var(--primary-color);
+}
+
+.form-editor {
+    height: 100%;
+}
+
+/* 分割线 */
+.divider {
+    width: var(--divider-width);
+    background-color: var(--border-color);
+    cursor: col-resize;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.divider:hover {
+    background-color: var(--primary-color);
+}
+
+.divider-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 30px;
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 1px;
+}
+
+/* 状态栏 */
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 16px;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--vscode-panel-background);
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.validation-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.validation-status.error {
+    color: var(--error-color);
+}
+
+.validation-status.success {
+    color: var(--success-color);
+}
+
+.schema-info {
+    color: var(--vscode-descriptionForeground);
+}
+
+/* 空状态 */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+}
+
+.empty-state .codicon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+/* 对话框样式 */
+.dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.dialog.hidden {
+    display: none;
+}
+
+.dialog-content {
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dialog-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.search-container {
+    margin-bottom: 16px;
+}
+
+.search-field {
+    width: 100%;
+}
+
+.schema-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+}
+
+.schema-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.schema-item:last-child {
+    border-bottom: none;
+}
+
+.schema-item:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.schema-item.selected {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+.schema-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--vscode-foreground);
+}
+
+.schema-description {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.loading,
+.no-results {
+    text-align: center;
+    padding: 40px;
+    color: var(--vscode-descriptionForeground);
+}
+
+/* 表单样式 */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--vscode-foreground);
+}
+
+.form-description {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.form-control {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.form-error {
+    font-size: 12px;
+    color: var(--error-color);
+    margin-top: 4px;
+}
+
+.form-array {
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    padding: 12px;
+}
+
+.form-array-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.form-array-item:last-child {
+    margin-bottom: 0;
+}
+
+.array-item-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.form-object {
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    padding: 12px;
+}
+
+.form-object-item {
+    margin-bottom: 12px;
+}
+
+.form-object-item:last-child {
+    margin-bottom: 0;
+}
+
+.object-item-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.object-item-controls {
+    display: flex;
+    gap: 4px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .editor-panel,
+    .form-panel {
+        width: 100%;
+        height: 50%;
+    }
+    
+    .divider {
+        width: 100%;
+        height: var(--divider-width);
+        cursor: row-resize;
+    }
+    
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .header-right {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-group {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 图标样式 */
+.codicon {
+    display: inline-block;
+    font-size: 16px;
+    color: inherit;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* 工具提示 */
+.tooltip {
+    position: relative;
+}
+
+.tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--vscode-editorWidget-background);
+    color: var(--vscode-editorWidget-foreground);
+    padding: 4px 8px;
+    border-radius: 2px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1000;
+    border: 1px solid var(--vscode-editorWidget-border);
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background-color: var(--vscode-scrollbarSlider-background);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+::-webkit-scrollbar-corner {
+    background-color: var(--vscode-editor-background);
+}
+
+/* Settings form styles */
+.settings-container {
+    display: flex;
+    height: 100%;
+}
+
+.settings-sidebar {
+    width: 250px;
+    border-right: 1px solid var(--border-color);
+    background-color: var(--vscode-sideBar-background);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.sidebar-title {
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--vscode-sideBarTitle-foreground);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.sidebar-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 3px solid transparent;
+    transition: background-color 0.1s;
+}
+
+.sidebar-item:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.sidebar-item.active {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+    border-left-color: var(--primary-color);
+}
+
+.sidebar-item-title {
+    flex: 1;
+    font-size: 13px;
+}
+
+.sidebar-item-count {
+    font-size: 11px;
+    opacity: 0.7;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.settings-category {
+    margin-bottom: 40px;
+}
+
+.settings-category.hidden {
+    display: none;
+}
+
+.category-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--vscode-foreground);
+}
+
+.category-description {
+    font-size: 14px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.category-content {
+    border-top: 1px solid var(--border-color);
+    padding-top: 20px;
+}
+
+.properties-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.property-item {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 16px;
+    background-color: var(--vscode-editor-background);
+}
+
+.property-children {
+    margin-top: 12px;
+    padding-left: 14px;
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.property-children .property-item {
+    padding: 12px;
+}
+
+.property-children-empty {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.array-object {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.array-toolbar {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.array-add-button,
+.array-remove-button,
+.map-add-button,
+.map-remove-button {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-button-border, transparent);
+    background-color: var(--vscode-button-secondaryBackground, var(--secondary-color));
+    color: var(--vscode-button-secondaryForeground, var(--foreground-color));
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.array-add-button:hover,
+.array-remove-button:hover,
+.map-add-button:hover,
+.map-remove-button:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground, var(--primary-hover));
+}
+
+.array-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.map-object {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.map-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+.map-hint {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.map-hint code {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+}
+
+.map-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.map-item {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px;
+    background-color: var(--vscode-editor-background);
+}
+
+.map-item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.map-item-header--inline {
+    margin-bottom: 0;
+}
+
+.map-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.array-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.array-item-row .control-input,
+.array-item-row .control-select {
+    flex: 1 1 auto;
+}
+
+/* Compact array UI for map values (e.g. ignoreViolations) */
+.map-value-array .array-items {
+    gap: 6px;
+}
+
+.map-value-array .array-item {
+    padding: 6px;
+}
+
+.map-value-array .array-item-row {
+    gap: 6px;
+}
+
+.map-value-array .array-add-button,
+.map-value-array .array-remove-button {
+    padding: 3px 8px;
+    font-size: 12px;
+}
+
+.map-key-input {
+    flex: 1 1 280px;
+    min-width: 220px;
+    font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.map-value-input {
+    flex: 1 1 auto;
+}
+
+.map-item-header .map-value-input {
+    flex: 0 1 240px;
+    min-width: 0;
+}
+
+.map-item-header input[type='checkbox'].map-value-input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+}
+
+.map-value-object .property-item {
+    margin-top: 0;
+}
+
+.map-key-invalid {
+    border-color: var(--vscode-inputValidation-errorBorder, var(--error-color));
+    outline: 1px solid var(--vscode-inputValidation-errorBorder, var(--error-color));
+}
+
+.anyof-object {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.anyof-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.anyof-label {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    min-width: 56px;
+}
+
+.anyof-variant.hidden {
+    display: none;
+}
+
+.array-item {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    background-color: var(--vscode-editor-background);
+}
+
+.array-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.array-item-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.array-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.property-item.search-target {
+    outline: 2px solid var(--vscode-editor-findMatchHighlightBackground, var(--primary-color));
+    outline-offset: 2px;
+    animation: searchFlash 1.2s ease-out;
+}
+
+@keyframes searchFlash {
+    0% { outline-color: var(--vscode-editor-findMatchHighlightBackground, var(--primary-color)); }
+    100% { outline-color: transparent; }
+}
+
+.property-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.property-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.property-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--vscode-foreground);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.property-required {
+    color: var(--error-color);
+    font-size: 12px;
+}
+
+.property-description {
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+}
+
+.property-control {
+    min-width: 200px;
+}
+
+.property-default {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 8px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+/* Control styles */
+.control-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.control-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.control-input:invalid {
+    border-color: var(--vscode-inputValidation-errorBorder, var(--error-color));
+}
+
+.control-select:invalid {
+    border-color: var(--vscode-inputValidation-errorBorder, var(--error-color));
+}
+
+.control-select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    background-color: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.control-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+}
+
+.control-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.control-toggle label {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--vscode-input-border);
+    border-radius: 22px;
+    transition: background-color 0.2s;
+}
+
+.toggle-slider {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.control-toggle input:checked + label {
+    background-color: var(--primary-color);
+}
+
+.control-toggle input:checked + label .toggle-slider {
+    transform: translateX(22px);
+}
+
+.control-array {
+    width: 100%;
+}
+
+/* Empty state */
+.settings-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    padding: 40px;
+}
+
+.empty-icon {
+    margin-bottom: 16px;
+    opacity: 0.3;
+}
+
+.empty-icon .codicon {
+    font-size: 64px;
+}
+
+.empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--vscode-foreground);
+}
+
+.empty-description {
+    font-size: 14px;
+    color: var(--vscode-descriptionForeground);
+    max-width: 400px;
+    line-height: 1.5;
+}

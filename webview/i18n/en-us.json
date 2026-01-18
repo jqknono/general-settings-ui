@@ -1,0 +1,23 @@
+{
+  "ui": {
+    "title": "Settings Editor",
+    "description": "Visual JSON Schema Settings Editor",
+    "selectSchema": "Select Schema",
+    "save": "Save",
+    "jsonSource": "JSON Source",
+    "visualEditor": "Visual Editor",
+    "reset": "Reset",
+    "selectSchemaToStart": "Please select a Schema to start editing",
+    "selectSchemaTitle": "Select Schema",
+    "searchPlaceholder": "Search Schema...",
+    "loading": "Loading...",
+    "unsupportedSchemaType": "Unsupported Schema type",
+    "jsonCopied": "JSON copied to clipboard",
+    "copyFailed": "Copy failed",
+    "loadSchemaFailed": "Failed to load Schema",
+    "jsonFormatError": "JSON format error",
+    "validationError": "Validation error",
+    "fileSaved": "File saved",
+    "saveFailed": "Save failed"
+  }
+}

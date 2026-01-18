@@ -1,0 +1,23 @@
+{
+  "ui": {
+    "title": "设置编辑器",
+    "description": "可视化JSON Schema设置编辑器",
+    "selectSchema": "选择Schema",
+    "save": "保存",
+    "jsonSource": "JSON 源码",
+    "visualEditor": "可视化编辑",
+    "reset": "重置",
+    "selectSchemaToStart": "请选择一个Schema开始编辑",
+    "selectSchemaTitle": "选择Schema",
+    "searchPlaceholder": "搜索Schema...",
+    "loading": "加载中...",
+    "unsupportedSchemaType": "不支持的Schema类型",
+    "jsonCopied": "JSON已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "loadSchemaFailed": "加载Schema失败",
+    "jsonFormatError": "JSON格式错误",
+    "validationError": "验证错误",
+    "fileSaved": "文件已保存",
+    "saveFailed": "保存失败"
+  }
+}

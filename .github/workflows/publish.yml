@@ -1,0 +1,132 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: "Force publish even if package.json version is unchanged"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Decide publish by version
+        id: version_check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          force="${{ github.event.inputs.force_publish }}"
+          if [[ "${force}" == "true" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=force_publish" >> "$GITHUB_OUTPUT"
+            echo "new_version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          before="${{ github.event.before }}"
+          sha="${{ github.sha }}"
+
+          new_version="$(node -p "require('./package.json').version")"
+          old_version=""
+
+          if [[ -z "${before}" || "${before}" == "0000000000000000000000000000000000000000" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=no_before_sha" >> "$GITHUB_OUTPUT"
+            echo "old_version=" >> "$GITHUB_OUTPUT"
+            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=before_commit_not_found" >> "$GITHUB_OUTPUT"
+            echo "old_version=" >> "$GITHUB_OUTPUT"
+            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          old_version="$(git show "${before}:package.json" 2>/dev/null | node -e "const fs=require('fs');const s=fs.readFileSync(0,'utf8');console.log((JSON.parse(s)||{}).version||'')")" || old_version=""
+
+          echo "old_version=${old_version}" >> "$GITHUB_OUTPUT"
+          echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+
+          if [[ -z "${old_version}" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=old_version_missing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${old_version}" != "${new_version}" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=version_changed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          echo "reason=version_unchanged" >> "$GITHUB_OUTPUT"
+
+      - name: Info
+        run: |
+          echo "should_publish=${{ steps.version_check.outputs.should_publish }}"
+          echo "reason=${{ steps.version_check.outputs.reason }}"
+          echo "old_version=${{ steps.version_check.outputs.old_version }}"
+          echo "new_version=${{ steps.version_check.outputs.new_version }}"
+
+      - name: Validate publish secrets
+        if: steps.version_check.outputs.should_publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          publisher="$(node -p "require('./package.json').publisher || ''")"
+          if [[ -z "${publisher}" ]]; then
+            echo "Missing package.json 'publisher' (required for VS Code Marketplace / Open VSX publishing)" >&2
+            exit 1
+          fi
+          if [[ -z "${{ secrets.VSCE_PAT }}" ]]; then
+            echo "Missing secrets.VSCE_PAT (required for VS Code Marketplace publishing)" >&2
+            exit 1
+          fi
+          if [[ -z "${{ secrets.OVSX_PAT }}" ]]; then
+            echo "Missing secrets.OVSX_PAT (required for Open VSX publishing)" >&2
+            exit 1
+          fi
+
+      - name: Install deps
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: npm ci
+
+      - name: Build
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: npm run compile
+
+      - name: Publish to VS Code Marketplace
+        if: steps.version_check.outputs.should_publish == 'true'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes @vscode/vsce@3.6.2 publish --pat "$VSCE_PAT"
+
+      - name: Publish to Open VSX
+        if: steps.version_check.outputs.should_publish == 'true'
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx --yes ovsx@0.10.6 publish -p "$OVSX_PAT"

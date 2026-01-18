@@ -1,0 +1,151 @@
+{
+  "name": "general-settings-ui",
+  "displayName": "JSON Schema Store GUI",
+  "description": "Fetch JSON Schemas from SchemaStore.org and edit them with a visual UI",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Formatters"
+  ],
+  "keywords": [
+    "json",
+    "schema",
+    "settings",
+    "editor",
+    "visualization"
+  ],
+  "author": {
+    "name": "General Settings UI Team"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/general-settings-ui"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "jsonSchemaStoreGUI.openEditor",
+        "title": "Open Settings Editor",
+        "category": "JSON Schema Store GUI"
+      },
+      {
+        "command": "jsonSchemaStoreGUI.searchSchema",
+        "title": "Search Schema",
+        "category": "JSON Schema Store GUI"
+      },
+      {
+        "command": "jsonSchemaStoreGUI.refreshSchemas",
+        "title": "Refresh Schema Cache",
+        "category": "JSON Schema Store GUI"
+      },
+      {
+        "command": "jsonSchemaStoreGUI.openEditorFromActive",
+        "title": "Open Visual Editor",
+        "category": "JSON Schema Store GUI",
+        "icon": {
+          "light": "assets/icon.png",
+          "dark": "assets/icon.png"
+        }
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "jsonSchemaStoreGUISchemaExplorer",
+          "name": "Schema Explorer",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "jsonSchemaStoreGUI.openEditorFromActive",
+          "when": "resourceLangId == json && resourceFilename =~ /\\.json$/",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "jsonSchemaStoreGUI.openEditor",
+          "when": "resourceLangId == json",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+        "command": "jsonSchemaStoreGUI.refreshSchemas",
+        "when": "view == jsonSchemaStoreGUISchemaExplorer",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "JSON Schema Store GUI",
+      "properties": {
+        "jsonSchemaStoreGUI.schemaCachePath": {
+          "type": "string",
+          "default": "",
+          "description": "Schema cache path"
+        },
+        "jsonSchemaStoreGUI.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh schemas"
+        },
+        "jsonSchemaStoreGUI.defaultLanguage": {
+          "type": "string",
+          "enum": ["en-us", "zh-cn"],
+          "default": "en-us",
+          "description": "Default UI language"
+        },
+        "jsonSchemaStoreGUI.autoSaveOnEdit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto save: persist changes from the visual editor to the source file"
+        },
+        "jsonSchemaStoreGUI.autoSaveDebounceMs": {
+          "type": "number",
+          "default": 800,
+          "minimum": 0,
+          "description": "Auto save debounce (ms) to reduce frequent writes"
+        }
+      }
+    }
+  },
+    "activationEvents": [
+      "onCommand:jsonSchemaStoreGUI.openEditor",
+      "onCommand:jsonSchemaStoreGUI.openEditorFromActive",
+      "onCommand:jsonSchemaStoreGUI.searchSchema",
+      "onView:jsonSchemaStoreGUISchemaExplorer"
+    ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0",
+    "ts-loader": "^9.5.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.0",
+    "@vscode/test-electron": "^2.3.0"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "json-schema": "^0.4.0"
+  }
+}
