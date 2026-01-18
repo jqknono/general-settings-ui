@@ -13,6 +13,12 @@
     "disableBypassPermissionsMode": "disable",
     "deny": [
       "12"
+    ],
+    "allow": [
+      "123"
+    ],
+    "additionalDirectories": [
+      "1212"
     ]
   },
   "enableAllProjectMcpServers": true,
@@ -43,5 +49,8 @@
   "skippedPlugins": [
     "12"
   ],
-  "forceLoginOrgUUID": "1"
+  "forceLoginOrgUUID": "1",
+  "enabledMcpjsonServers": [
+    "1111"
+  ]
 }

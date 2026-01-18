@@ -497,6 +497,7 @@ class SettingsEditorApp {
 
     private applyControlValidations(control: HTMLElement) {
         this.applyExclusiveMinimumValidation(control);
+        this.applyPatternValidation(control);
     }
 
     private applyExclusiveMinimumValidation(control: HTMLElement) {
@@ -531,6 +532,56 @@ class SettingsEditorApp {
         } else {
             try {
                 el.setCustomValidity?.('');
+            } catch {
+                // ignore
+            }
+        }
+    }
+
+    private applyPatternValidation(control: HTMLElement) {
+        const el = control as any;
+        if (!el || !el.dataset) return;
+
+        const patternRaw = typeof el.dataset.pattern === 'string' ? String(el.dataset.pattern || '') : '';
+        if (!patternRaw) return;
+
+        const type = String(el.dataset.type || '');
+        if (type !== 'string') return;
+
+        if (!(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)) return;
+
+        const raw = typeof control.value === 'string' ? control.value : '';
+        const shouldPreserve = String((control as any)?.dataset?.mapRole || '') === 'value';
+        const value = shouldPreserve ? String(raw ?? '') : String(raw ?? '').trim();
+
+        if (!value) {
+            try {
+                control.setCustomValidity('');
+            } catch {
+                // ignore
+            }
+            return;
+        }
+
+        try {
+            const re = new RegExp(patternRaw);
+            if (!re.test(value)) {
+                try {
+                    control.setCustomValidity(`不符合 pattern：${patternRaw}`);
+                } catch {
+                    // ignore
+                }
+            } else {
+                try {
+                    control.setCustomValidity('');
+                } catch {
+                    // ignore
+                }
+            }
+        } catch {
+            // schema 里如果给了无法编译的 pattern，避免阻塞用户编辑
+            try {
+                control.setCustomValidity('');
             } catch {
                 // ignore
             }
@@ -965,6 +1016,7 @@ class SettingsEditorApp {
             }
 
             this.applyArrayItemExamples(arrayEl, item, arrayPath, newIndex);
+            this.applyPlaceholderExamples(item);
         });
     }
 
@@ -1011,6 +1063,7 @@ class SettingsEditorApp {
             removeBtn.setAttribute('data-array-path', arrayPath);
         }
 
+        this.applyPlaceholderExamples(item);
         return item;
     }
 
@@ -1023,11 +1076,60 @@ class SettingsEditorApp {
         }
     }
 
+    private applyPlaceholderExamples(rootEl: HTMLElement) {
+        const controls = Array.from(rootEl.querySelectorAll('[data-placeholder-examples]')) as Array<
+            HTMLInputElement | HTMLTextAreaElement | HTMLElement
+        >;
+
+        for (const c of controls) {
+            if (!(c instanceof HTMLInputElement || c instanceof HTMLTextAreaElement)) continue;
+
+            const raw = c.getAttribute('data-placeholder-examples');
+            const examples = this.safeParseJson(raw);
+            if (!Array.isArray(examples) || examples.length === 0) continue;
+
+            // 若用户已有输入值，则不要覆盖（placeholder 无意义且会干扰视觉）
+            if (typeof c.value === 'string' && c.value.length > 0) continue;
+
+            const cached = (() => {
+                const v = String((c as any)?.dataset?.placeholderExampleIndex || '').trim();
+                if (!v) return null;
+                const n = parseInt(v, 10);
+                return Number.isFinite(n) && n >= 0 && n < examples.length ? n : null;
+            })();
+
+            const idx = cached ?? Math.floor(Math.random() * examples.length);
+            (c as any).dataset.placeholderExampleIndex = String(idx);
+
+            const example = examples[idx];
+            if (example === undefined || example === null) continue;
+
+            if (typeof example === 'string' || typeof example === 'number') {
+                c.placeholder = String(example);
+            } else if (typeof example === 'boolean') {
+                // boolean 没有 placeholder
+            } else {
+                c.placeholder = JSON.stringify(example);
+            }
+        }
+    }
+
     private applyArrayItemExamples(arrayEl: HTMLElement, itemEl: HTMLElement, arrayPath: string, index: number) {
         const examplesRaw = arrayEl.getAttribute('data-array-examples');
         const examples = this.safeParseJson(examplesRaw);
-        if (!Array.isArray(examples)) return;
-        const example = examples[index];
+        if (!Array.isArray(examples) || examples.length === 0) return;
+
+        const cached = (() => {
+            const v = String(itemEl.dataset.arrayExampleIndex || '').trim();
+            if (!v) return null;
+            const n = parseInt(v, 10);
+            return Number.isFinite(n) && n >= 0 && n < examples.length ? n : null;
+        })();
+
+        const exampleIndex = cached ?? Math.floor(Math.random() * examples.length);
+        itemEl.dataset.arrayExampleIndex = String(exampleIndex);
+
+        const example = examples[exampleIndex];
         if (example === undefined || example === null) return;
 
         // scalar item: 控件直接绑定到 `${arrayPath}/${index}`

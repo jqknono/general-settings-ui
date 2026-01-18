@@ -6,23 +6,20 @@ A powerful VSCode extension that converts JSON Schema into a visual settings edi
 
 ### 🎯 Core Features
 - **Schema Management**: Fetch, cache, and manage JSON schemas from SchemaStore.org
-- **Visual Editor**: Dynamically generate form interfaces based on schemas
-- **Dual-Pane View**: JSON source code on the left, visual editor on the right
-- **Real-time Sync**: Bidirectional synchronization between JSON editor and visual editor
-- **Smart Validation**: Real-time validation and error hints based on JSON Schema
+- **Visual Editor**: Dynamically generate a visual form based on the selected schema
+- **Two-way Sync**: Synchronize between the source JSON file and the visual editor (webview)
+- **Validation Hints**: Show input validation feedback based on JSON Schema (e.g. `pattern`, ranges, map key checks)
 
 ### 🌟 Advanced Features
-- **Multi-language Support**: Switch between Chinese and English interfaces
 - **Theme Adaptation**: Automatically adapts to VSCode light/dark themes
-- **Schema Search**: Quickly search and select the desired JSON schema
-- **File Association**: Automatically match schemas based on filename
-- **Live Preview**: Display validation results and error messages in real-time during editing
+- **Schema Explorer**: Browse & search schemas (Explorer view)
+- **Quick Pick Search**: Search and select a schema via Command Palette
+- **Auto-save**: Persist changes back to the source file (configurable)
 
 ### 🎨 UI Features
-- **VSCode Native Style**: Uses VSCode Elements component library for a consistent native look
-- **Responsive Layout**: Adaptive layout for different screen sizes
-- **Adjustable Split**: Drag to resize left and right panels
-- **Status Bar Info**: Displays current schema info, validation status, and more
+- **VSCode Native Look**: Uses VS Code theme variables for a consistent look
+- **Settings Search**: Search by key/title/description and jump to the matched setting
+- **Status Bar Entry**: Shows "Open Visual Editor" when the active JSON file has `"$schema"`
 
 ## Installation & Usage
 
@@ -44,10 +41,10 @@ A powerful VSCode extension that converts JSON Schema into a visual settings edi
 - Auto-save: Enabled by default (`jsonSchemaStoreGUI.autoSaveOnEdit`), changes are automatically saved to the source file after the debounce time (`jsonSchemaStoreGUI.autoSaveDebounceMs`) expires.
 
 ### Keyboard Shortcuts
-- `Ctrl/Cmd + S`: Save file
-- `Ctrl/Cmd + F`: Format JSON
-- `Tab`: Insert indentation
-- `Shift + Tab`: Decrease indentation
+- `Ctrl/Cmd + F`: Focus the settings search box (in the visual editor)
+- `↑/↓`: Navigate search results
+- `Enter`: Jump to the selected setting
+- `Esc`: Close the results popup (or clear the query if already closed)
 
 ## Supported Schema Types
 
@@ -120,9 +117,8 @@ json-schema-store-gui/
 
 ### Frontend (Webview)
 - **TypeScript**: Frontend logic
-- **VSCode Elements**: Native UI component library
-- **Web Components**: Component-based development
-- **CSS3**: Modern CSS features
+- **DOM + Template HTML**: Render settings form and handle interactions
+- **CSS**: Uses VS Code theme variables for consistent styling
 
 ### Build Tools
 - **Webpack**: Module bundling
@@ -160,9 +156,9 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ## Contact
 
-- Project Home: [GitHub Repository](https://github.com/your-username/json-schema-store-gui)
-- Bug Reports: [Issues](https://github.com/your-username/json-schema-store-gui/issues)
-- Feature Requests: [Discussions](https://github.com/your-username/json-schema-store-gui/discussions)
+- Project Home: [GitHub Repository](https://github.com/jqknono/general-settings-ui)
+- Bug Reports: [Issues](https://github.com/jqknono/general-settings-ui/issues)
+- Feature Requests: [Discussions](https://github.com/jqknono/general-settings-ui/discussions)
 
 ---
 

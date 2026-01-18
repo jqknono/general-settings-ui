@@ -196,7 +196,7 @@ export class SettingsFormGenerator {
                 data-path="${this._escapeAttr(pathPointer)}"
                 data-type="string"
                 placeholder="${this._escapeAttr(placeholderValue ?? '')}"
-                ${pattern ? `pattern="${pattern}"` : ''}
+                ${pattern ? `data-pattern="${this._escapeAttr(pattern)}"` : ''}
                 ${minLength ? `minlength="${minLength}"` : ''}
                 ${maxLength ? `maxlength="${maxLength}"` : ''}
             />
@@ -220,19 +220,19 @@ export class SettingsFormGenerator {
         `;
     }
 
-    private _firstExample(schemaNode: any): any {
+    private _randomExample(schemaNode: any): any {
         const examples = schemaNode?.examples;
         if (!Array.isArray(examples) || examples.length === 0) {
             return undefined;
         }
-        return examples[0];
+        return examples[Math.floor(Math.random() * examples.length)];
     }
 
     private _placeholderValue(schemaNode: any, defaultValue: any): any {
         if (defaultValue !== undefined && defaultValue !== null) {
             return defaultValue;
         }
-        return this._firstExample(schemaNode);
+        return this._randomExample(schemaNode);
     }
 
     private _placeholderForProp(schemaNode: any, prop: ConfigProperty): any {
@@ -240,9 +240,9 @@ export class SettingsFormGenerator {
             return prop.default;
         }
         if (Array.isArray(prop.examples) && prop.examples.length > 0) {
-            return prop.examples[0];
+            return prop.examples[Math.floor(Math.random() * prop.examples.length)];
         }
-        return this._firstExample(schemaNode);
+        return this._randomExample(schemaNode);
     }
 
     private _generateEnumControl(pathPointer: string, propDomId: string, values: string[], defaultValue: any): string {
@@ -357,6 +357,13 @@ export class SettingsFormGenerator {
         const pattern = typeof resolved?.pattern === 'string' ? resolved.pattern : undefined;
         const minLength = typeof resolved?.minLength === 'number' ? resolved.minLength : undefined;
         const maxLength = typeof resolved?.maxLength === 'number' ? resolved.maxLength : undefined;
+        const exampleList =
+            resolved?.default !== undefined && resolved?.default !== null
+                ? null
+                : Array.isArray(resolved?.examples) && resolved.examples.length > 0
+                    ? resolved.examples
+                    : null;
+        const examplesAttr = exampleList ? `data-placeholder-examples="${this._escapeAttr(JSON.stringify(exampleList))}"` : '';
 
         if (constValue !== undefined) {
             return `
@@ -378,8 +385,9 @@ export class SettingsFormGenerator {
                 class="control-input"
                 data-path="${this._escapeAttr(pathPointer)}"
                 data-type="string"
-                placeholder="${this._escapeAttr(placeholder ?? '')}"
-                ${pattern ? `pattern="${pattern}"` : ''}
+                placeholder="${this._escapeAttr(exampleList ? '' : (placeholder ?? ''))}"
+                ${examplesAttr}
+                ${pattern ? `data-pattern="${this._escapeAttr(pattern)}"` : ''}
                 ${minLength ? `minlength="${minLength}"` : ''}
                 ${maxLength ? `maxlength="${maxLength}"` : ''}
             />
@@ -653,7 +661,7 @@ export class SettingsFormGenerator {
                 const itemsSchema = this._pickSchemaVariant(arraySchema.items || {});
                 const isItemsObject = this._isObjectSchema(itemsSchema);
 
-                const rawFromResolved = this._firstExample(arraySchema);
+                const rawFromResolved = this._randomExample(arraySchema);
                 const arrayExamplesAttr = Array.isArray(rawFromResolved)
                     ? `data-array-examples="${this._escapeAttr(JSON.stringify(rawFromResolved))}"`
                     : '';
@@ -824,22 +832,22 @@ export class SettingsFormGenerator {
             const minLength = typeof (valueResolved as any)?.minLength === 'number' ? (valueResolved as any).minLength : undefined;
             const maxLength = typeof (valueResolved as any)?.maxLength === 'number' ? (valueResolved as any).maxLength : undefined;
 
-            return `
-                <input
-                    type="text"
-                    class="control-input map-value-input"
-                    data-type="string"
-                    data-map-role="value"
-                    data-path="${this._escapeAttr(valuePointerPrefix)}"
-                    placeholder="${this._escapeAttr(valuePlaceholder ?? '')}"
-                    ${pattern ? `pattern="${pattern}"` : ''}
-                    ${minLength ? `minlength="${minLength}"` : ''}
-                    ${maxLength ? `maxlength="${maxLength}"` : ''}
-                    ${constValue !== undefined ? `data-const="${this._escapeAttr(JSON.stringify(constValue))}"` : ''}
-                    ${constValue !== undefined ? `value="${this._escapeAttr(String(constValue))}" disabled` : ''}
-                />
-            `;
-        };
+	            return `
+	                <input
+	                    type="text"
+	                    class="control-input map-value-input"
+	                    data-type="string"
+	                    data-map-role="value"
+	                    data-path="${this._escapeAttr(valuePointerPrefix)}"
+	                    placeholder="${this._escapeAttr(valuePlaceholder ?? '')}"
+	                    ${pattern ? `data-pattern="${this._escapeAttr(pattern)}"` : ''}
+	                    ${minLength ? `minlength="${minLength}"` : ''}
+	                    ${maxLength ? `maxlength="${maxLength}"` : ''}
+	                    ${constValue !== undefined ? `data-const="${this._escapeAttr(JSON.stringify(constValue))}"` : ''}
+	                    ${constValue !== undefined ? `value="${this._escapeAttr(String(constValue))}" disabled` : ''}
+	                />
+	            `;
+	        };
 
         if (resolvedType === 'object' && this._isObjectSchema(schemaNode)) {
             const resolved = this._pickSchemaVariant(schemaNode);
@@ -1106,8 +1114,8 @@ export class SettingsFormGenerator {
 	            const itemsSchema = this._pickSchemaVariant(resolved.items || {});
 	            const isItemsObject = this._isObjectSchema(itemsSchema);
 	            const rawFromProp = Array.isArray(prop.examples) ? prop.examples[0] : undefined;
-	            const rawFromOriginal = this._firstExample(prop.schema);
-	            const rawFromResolved = this._firstExample(resolved);
+	            const rawFromOriginal = this._randomExample(prop.schema);
+	            const rawFromResolved = this._randomExample(resolved);
 	            const arrayExample0 =
 	                (Array.isArray(rawFromProp) ? rawFromProp : undefined) ||
 	                (Array.isArray(rawFromOriginal) ? rawFromOriginal : undefined) ||

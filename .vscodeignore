@@ -1,0 +1,39 @@
+# Source files
+src/**
+webview/**/*.ts
+tsconfig.json
+tsconfig.webview.json
+webpack.config.js
+
+# Development
+.vscode/**
+.github/**
+.eslintrc.js
+
+# Test
+test-workspace/**
+**/*.test.ts
+**/test/**
+
+# Build artifacts not needed
+node_modules/**
+!node_modules/ajv/**
+!node_modules/json-schema/**
+
+# Git
+.git/**
+.gitignore
+.ignore
+
+# Environment and secrets
+.env
+.env.*
+*.env
+
+# Scripts (not needed in extension)
+scripts/**
+
+# Misc
+*.md
+*.vsix
+package-lock.json

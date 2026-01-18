@@ -1,7 +1,10 @@
-name: Publish VS Code Extension
+name: Build and Publish VS Code Extension
 
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -11,12 +14,31 @@ on:
         required: false
         type: boolean
         default: false
+      target:
+        description: "Publish target"
+        required: false
+        type: choice
+        options:
+          - all
+          - vscode
+          - openvsx
+          - none
+        default: all
 
 jobs:
-  publish:
+  # ====================
+  # Build Job
+  # ====================
+  build:
+    name: Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      should_publish: ${{ steps.version_check.outputs.should_publish }}
+      reason: ${{ steps.version_check.outputs.reason }}
+      old_version: ${{ steps.version_check.outputs.old_version }}
+      new_version: ${{ steps.version_check.outputs.new_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,11 +51,40 @@ jobs:
           node-version: 18
           cache: npm
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run compile
+
+      - name: Package extension
+        run: npx --yes @vscode/vsce@3.6.2 package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-package
+          path: "*.vsix"
+          retention-days: 30
+
       - name: Decide publish by version
         id: version_check
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
+
+          # Check manual target selection
+          target="${{ github.event.inputs.target }}"
+          if [[ "${target}" == "none" ]]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "reason=target_none" >> "$GITHUB_OUTPUT"
+            echo "new_version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           force="${{ github.event.inputs.force_publish }}"
           if [[ "${force}" == "true" ]]; then
@@ -85,48 +136,108 @@ jobs:
           echo "should_publish=false" >> "$GITHUB_OUTPUT"
           echo "reason=version_unchanged" >> "$GITHUB_OUTPUT"
 
-      - name: Info
+      - name: Build info
+        if: github.event_name != 'pull_request'
         run: |
           echo "should_publish=${{ steps.version_check.outputs.should_publish }}"
           echo "reason=${{ steps.version_check.outputs.reason }}"
           echo "old_version=${{ steps.version_check.outputs.old_version }}"
           echo "new_version=${{ steps.version_check.outputs.new_version }}"
 
-      - name: Validate publish secrets
-        if: steps.version_check.outputs.should_publish == 'true'
+  # ====================
+  # Publish to VS Code Marketplace
+  # ====================
+  publish-vscode:
+    name: Publish to VS Code Marketplace
+    needs: build
+    if: |
+      github.event_name != 'pull_request' &&
+      needs.build.outputs.should_publish == 'true' &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'vscode')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Validate secrets
         shell: bash
         run: |
           set -euo pipefail
           publisher="$(node -p "require('./package.json').publisher || ''")"
           if [[ -z "${publisher}" ]]; then
-            echo "Missing package.json 'publisher' (required for VS Code Marketplace / Open VSX publishing)" >&2
+            echo "::error::Missing package.json 'publisher' field"
             exit 1
           fi
           if [[ -z "${{ secrets.VSCE_PAT }}" ]]; then
-            echo "Missing secrets.VSCE_PAT (required for VS Code Marketplace publishing)" >&2
+            echo "::error::Missing secrets.VSCE_PAT"
+            exit 1
+          fi
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-package
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          vsix_file=$(ls *.vsix | head -n1)
+          echo "Publishing ${vsix_file} to VS Code Marketplace..."
+          npx --yes @vscode/vsce@3.6.2 publish --packagePath "${vsix_file}" --pat "$VSCE_PAT"
+
+  # ====================
+  # Publish to Open VSX
+  # ====================
+  publish-openvsx:
+    name: Publish to Open VSX
+    needs: build
+    if: |
+      github.event_name != 'pull_request' &&
+      needs.build.outputs.should_publish == 'true' &&
+      (github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'openvsx')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Validate secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          publisher="$(node -p "require('./package.json').publisher || ''")"
+          if [[ -z "${publisher}" ]]; then
+            echo "::error::Missing package.json 'publisher' field"
             exit 1
           fi
           if [[ -z "${{ secrets.OVSX_PAT }}" ]]; then
-            echo "Missing secrets.OVSX_PAT (required for Open VSX publishing)" >&2
+            echo "::error::Missing secrets.OVSX_PAT"
             exit 1
           fi
 
-      - name: Install deps
-        if: steps.version_check.outputs.should_publish == 'true'
-        run: npm ci
-
-      - name: Build
-        if: steps.version_check.outputs.should_publish == 'true'
-        run: npm run compile
-
-      - name: Publish to VS Code Marketplace
-        if: steps.version_check.outputs.should_publish == 'true'
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx --yes @vscode/vsce@3.6.2 publish --pat "$VSCE_PAT"
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-package
 
       - name: Publish to Open VSX
-        if: steps.version_check.outputs.should_publish == 'true'
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx --yes ovsx@0.10.6 publish -p "$OVSX_PAT"
+        run: |
+          vsix_file=$(ls *.vsix | head -n1)
+          echo "Publishing ${vsix_file} to Open VSX..."
+          npx --yes ovsx@0.10.6 publish "${vsix_file}" -p "$OVSX_PAT"
