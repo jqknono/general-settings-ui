@@ -16,7 +16,6 @@
 # Environment Variables:
 #   VSCE_PAT        - Personal Access Token for VS Code Marketplace
 #   OVSX_PAT        - Personal Access Token for Open VSX Registry
-#   OPEN_VSX_TOKEN  - Alternative name for Open VSX token (fallback)
 #
 # Examples:
 #   ./scripts/publish.sh                        # Build and publish to all marketplaces
@@ -173,13 +172,8 @@ validate_tokens() {
     fi
     
     if [[ "$TARGET" == "openvsx" || "$TARGET" == "all" ]]; then
-        # Support both OVSX_PAT and OPEN_VSX_TOKEN
-        if [[ -z "${OVSX_PAT:-}" && -z "${OPEN_VSX_TOKEN:-}" ]]; then
-            missing_tokens+=("OVSX_PAT or OPEN_VSX_TOKEN (Open VSX Registry)")
-        fi
-        # Normalize to OVSX_PAT
-        if [[ -z "${OVSX_PAT:-}" && -n "${OPEN_VSX_TOKEN:-}" ]]; then
-            export OVSX_PAT="${OPEN_VSX_TOKEN}"
+        if [[ -z "${OVSX_PAT:-}" ]]; then
+            missing_tokens+=("OVSX_PAT (Open VSX Registry)")
         fi
     fi
     
