@@ -33,12 +33,11 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     outputs:
       should_publish: ${{ steps.version_check.outputs.should_publish }}
       reason: ${{ steps.version_check.outputs.reason }}
-      old_version: ${{ steps.version_check.outputs.old_version }}
-      new_version: ${{ steps.version_check.outputs.new_version }}
+      tag_name: ${{ steps.version_check.outputs.tag_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,72 +76,52 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Get current version
-          new_version=$(node -p 'require("./package.json").version')
+          # Get current version from package.json
+          version=$(node -p 'require("./package.json").version')
+          tag_name="v${version}"
 
           # Check manual target selection
           target="${{ github.event.inputs.target }}"
           if [[ "${target}" == "none" ]]; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
             echo "reason=target_none" >> "$GITHUB_OUTPUT"
-            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+            echo "tag_name=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          # Force publish mode
           force="${{ github.event.inputs.force_publish }}"
           if [[ "${force}" == "true" ]]; then
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
             echo "reason=force_publish" >> "$GITHUB_OUTPUT"
-            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          before="${{ github.event.before }}"
-          old_version=""
+          # Fetch all tags to check if version tag already exists
+          git fetch --tags
 
-          if [[ -z "${before}" || "${before}" == "0000000000000000000000000000000000000000" ]]; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "reason=no_before_sha" >> "$GITHUB_OUTPUT"
-            echo "old_version=" >> "$GITHUB_OUTPUT"
-            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+          # Check if tag already exists
+          if git rev-parse "${tag_name}" >/dev/null 2>&1; then
+            echo "Tag ${tag_name} already exists, skipping publish"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "reason=tag_exists" >> "$GITHUB_OUTPUT"
+            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          if ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "reason=before_commit_not_found" >> "$GITHUB_OUTPUT"
-            echo "old_version=" >> "$GITHUB_OUTPUT"
-            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          old_version=$(git show "${before}:package.json" 2>/dev/null | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version' 2>/dev/null) || old_version=""
-
-          echo "old_version=${old_version}" >> "$GITHUB_OUTPUT"
-          echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
-
-          if [[ -z "${old_version}" ]]; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "reason=old_version_missing" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [[ "${old_version}" != "${new_version}" ]]; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "reason=version_changed" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "should_publish=false" >> "$GITHUB_OUTPUT"
-          echo "reason=version_unchanged" >> "$GITHUB_OUTPUT"
+          # New version - publish and create tag
+          echo "New version ${version} detected, will publish"
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          echo "reason=new_version" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 
       - name: Build info
         if: github.event_name != 'pull_request'
         run: |
           echo "should_publish=${{ steps.version_check.outputs.should_publish }}"
           echo "reason=${{ steps.version_check.outputs.reason }}"
-          echo "old_version=${{ steps.version_check.outputs.old_version }}"
-          echo "new_version=${{ steps.version_check.outputs.new_version }}"
+          echo "tag_name=${{ steps.version_check.outputs.tag_name }}"
 
   # ====================
   # Publish to VS Code Marketplace
@@ -241,3 +220,40 @@ jobs:
           vsix_file=$(ls *.vsix | head -n1)
           echo "Publishing ${vsix_file} to Open VSX..."
           npx --yes ovsx@0.10.6 publish "${vsix_file}" -p "$OVSX_PAT"
+
+  # ====================
+  # Create Git Tag
+  # ====================
+  create-tag:
+    name: Create Git Tag
+    needs: [build, publish-vscode, publish-openvsx]
+    if: |
+      github.event_name != 'pull_request' &&
+      needs.build.outputs.should_publish == 'true' &&
+      (needs.publish-vscode.result == 'success' || needs.publish-openvsx.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          tag_name="${{ needs.build.outputs.tag_name }}"
+          if [[ -z "${tag_name}" ]]; then
+            echo "No tag name provided, skipping"
+            exit 0
+          fi
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create and push tag
+          git tag -a "${tag_name}" -m "Release ${tag_name}"
+          git push origin "${tag_name}"
+
+          echo "Created and pushed tag: ${tag_name}"
