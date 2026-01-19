@@ -32,6 +32,51 @@ export class WebviewProvider implements vscode.Disposable {
         this._registerDocumentRebindListeners();
     }
 
+    private _rankSchemasForQuery(query: string, schemas: SchemaInfo[], limit: number): SchemaInfo[] {
+        const q = String(query || '').trim().toLowerCase();
+        const max = Math.max(1, limit | 0);
+
+        const safeText = (v: unknown) => String(v || '').toLowerCase();
+
+        const scored = schemas.map((schema) => {
+            const name = safeText(schema?.name);
+            const desc = safeText(schema?.description);
+            const fileMatches = Array.isArray(schema?.fileMatch) ? schema.fileMatch.map(safeText).join(' ') : '';
+
+            let score = 0;
+
+            if (!q) {
+                score = 1;
+            } else if (name === q) {
+                score = 1000;
+            } else if (name.startsWith(q)) {
+                score = 850;
+            } else if (name.includes(q)) {
+                score = 650;
+            }
+
+            if (q && score < 1000) {
+                if (fileMatches.includes(q)) {
+                    score += 260;
+                }
+                if (desc.includes(q)) {
+                    score += 180;
+                }
+            }
+
+            return { schema, score };
+        });
+
+        scored.sort((a, b) => {
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            return String(a.schema?.name || '').localeCompare(String(b.schema?.name || ''));
+        });
+
+        return scored.slice(0, max).map(s => s.schema);
+    }
+
     private _registerDocumentRebindListeners() {
         const listener = vscode.workspace.onDidSaveTextDocument(
             (document) => {
@@ -506,6 +551,9 @@ export class WebviewProvider implements vscode.Disposable {
                         <span id="schemaDescription" class="schema-description">Visual JSON Schema Settings Editor</span>
                         <span id="boundSource" class="bound-source"></span>
                     </div>
+                    <div class="header-right">
+                        <button id="openSchemaDialogBtn" class="action-button" type="button">Select Schema</button>
+                    </div>
                 </header>
 
                 <div class="main-content">
@@ -517,6 +565,28 @@ export class WebviewProvider implements vscode.Disposable {
                                     <p>Please select a Schema to start editing</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="schemaStoreDialog" class="dialog hidden" role="dialog" aria-modal="true" aria-labelledby="schemaStoreDialogTitle">
+                <div class="dialog-content">
+                    <div class="dialog-header">
+                        <h2 id="schemaStoreDialogTitle">Select Schema</h2>
+                        <button id="schemaStoreCloseBtn" class="icon-button" type="button" aria-label="Close dialog">
+                            <span class="codicon codicon-close"></span>
+                        </button>
+                    </div>
+                    <div class="dialog-body">
+                        <div class="schema-dialog-toolbar">
+                            <input id="schemaStoreSearchInput" class="control-input schema-store-search" type="search" placeholder="Search Schema..." autocomplete="off" />
+                            <button id="schemaStoreRefreshBtn" class="action-button secondary" type="button">Refresh</button>
+                        </div>
+                        <div id="schemaStoreList" class="schema-list"></div>
+                        <div class="schema-dialog-footer">
+                            <span class="schema-dialog-footer-text">Source: SchemaStore.org</span>
+                            <a class="schema-dialog-link" href="https://www.schemastore.org/" target="_blank" rel="noreferrer">Open</a>
                         </div>
                     </div>
                 </div>
@@ -588,6 +658,82 @@ export class WebviewProvider implements vscode.Disposable {
                             });
                         }
                         this._pendingDataMap.delete(panelId);
+                    }
+                }
+                break;
+            case 'getLanguage':
+                {
+                    const config = vscode.workspace.getConfiguration('jsonSchemaStoreGUI');
+                    const raw = config.get<string>('defaultLanguage', 'en-us');
+                    const language = raw === 'zh-cn' ? 'zh-cn' : 'en-us';
+                    panel.webview.postMessage({
+                        command: 'language',
+                        language
+                    });
+                }
+                break;
+            case 'schemaStoreSearch':
+                {
+                    const query = typeof message?.query === 'string' ? message.query : '';
+                    const requestId = typeof message?.requestId === 'string' ? message.requestId : '';
+
+                    try {
+                        const all = await this._schemaManager.searchSchemas(query);
+                        const ranked = this._rankSchemasForQuery(query, all, 200);
+                        panel.webview.postMessage({
+                            command: 'schemaStoreSearchResult',
+                            requestId,
+                            query,
+                            total: all.length,
+                            schemas: ranked.map(s => ({
+                                name: s.name,
+                                description: s.description,
+                                url: s.url,
+                                fileMatch: s.fileMatch
+                            }))
+                        });
+                    } catch (error) {
+                        panel.webview.postMessage({
+                            command: 'schemaStoreSearchResult',
+                            requestId,
+                            query,
+                            total: 0,
+                            schemas: [],
+                            error: error instanceof Error ? error.message : String(error)
+                        });
+                    }
+                }
+                break;
+            case 'schemaStoreRefresh':
+                {
+                    const query = typeof message?.query === 'string' ? message.query : '';
+                    const requestId = typeof message?.requestId === 'string' ? message.requestId : '';
+
+                    try {
+                        await this._schemaManager.refreshCache();
+                        const all = await this._schemaManager.searchSchemas(query);
+                        const ranked = this._rankSchemasForQuery(query, all, 200);
+                        panel.webview.postMessage({
+                            command: 'schemaStoreSearchResult',
+                            requestId,
+                            query,
+                            total: all.length,
+                            schemas: ranked.map(s => ({
+                                name: s.name,
+                                description: s.description,
+                                url: s.url,
+                                fileMatch: s.fileMatch
+                            }))
+                        });
+                    } catch (error) {
+                        panel.webview.postMessage({
+                            command: 'schemaStoreSearchResult',
+                            requestId,
+                            query,
+                            total: 0,
+                            schemas: [],
+                            error: error instanceof Error ? error.message : String(error)
+                        });
                     }
                 }
                 break;

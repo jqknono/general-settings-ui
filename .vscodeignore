@@ -8,6 +8,7 @@ webpack.config.js
 # Development
 .vscode/**
 .github/**
+.claude/**
 .eslintrc.js
 
 # Test
@@ -17,8 +18,11 @@ test-workspace/**
 
 # Build artifacts not needed
 node_modules/**
-!node_modules/ajv/**
-!node_modules/json-schema/**
+
+# Webview sources (bundled into out/webview/main.js)
+webview/components/**
+webview/utils/**
+webview/i18n/**
 
 # Git
 .git/**

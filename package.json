@@ -2,7 +2,7 @@
   "name": "general-settings-ui",
   "displayName": "JSON Schema Store GUI",
   "description": "Fetch JSON Schemas from SchemaStore.org and edit them with a visual UI",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "techfetch-dev",
   "engines": {
     "vscode": "^1.85.0"
@@ -22,6 +22,7 @@
     "name": "General Settings UI Team"
   },
   "license": "MIT",
+  "icon": "assets/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/jqknono/general-settings-ui"
@@ -127,8 +128,8 @@
     ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "webpack",
-    "watch": "webpack --watch",
+    "compile": "webpack --mode production",
+    "watch": "webpack --watch --mode development",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",

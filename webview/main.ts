@@ -23,6 +23,43 @@ interface TopLevelUiTarget {
     categoryTitle: string;
 }
 
+type UiLanguage = 'en-us' | 'zh-cn';
+
+const SCHEMA_STORE_UI_TEXT: Record<
+    UiLanguage,
+    {
+        openButton: string;
+        dialogTitle: string;
+        searchPlaceholder: string;
+        refresh: string;
+        loading: string;
+        noResults: string;
+        errorPrefix: string;
+        sourceLabel: string;
+    }
+> = {
+    'en-us': {
+        openButton: 'Select Schema',
+        dialogTitle: 'Select Schema',
+        searchPlaceholder: 'Search Schema...',
+        refresh: 'Refresh',
+        loading: 'Loading...',
+        noResults: 'No schemas found',
+        errorPrefix: 'Error',
+        sourceLabel: 'Source: SchemaStore.org'
+    },
+    'zh-cn': {
+        openButton: '选择Schema',
+        dialogTitle: '选择Schema',
+        searchPlaceholder: '搜索Schema...',
+        refresh: '刷新',
+        loading: '加载中...',
+        noResults: '未找到匹配的Schema',
+        errorPrefix: '加载失败',
+        sourceLabel: '来源: SchemaStore.org'
+    }
+};
+
 class SettingsEditorApp {
     schema: any;
     data: any;
@@ -44,6 +81,18 @@ class SettingsEditorApp {
     private _searchField: any | null;
     private _searchResultsEl: HTMLElement | null;
     private _searchWrapperEl: HTMLElement | null;
+    private _uiLanguage: UiLanguage;
+    private _schemaDialogEl: HTMLElement | null;
+    private _schemaDialogTitleEl: HTMLElement | null;
+    private _schemaDialogFooterTextEl: HTMLElement | null;
+    private _schemaOpenBtnEl: HTMLButtonElement | null;
+    private _schemaCloseBtnEl: HTMLButtonElement | null;
+    private _schemaSearchInputEl: HTMLInputElement | null;
+    private _schemaRefreshBtnEl: HTMLButtonElement | null;
+    private _schemaListEl: HTMLElement | null;
+    private _schemaSearchTimer: number | null;
+    private _schemaLastRequestId: string;
+    private _schemaLastQuery: string;
 
     constructor() {
         // VS Code webview 与扩展通信的桥接对象
@@ -70,6 +119,18 @@ class SettingsEditorApp {
         this._searchField = null;
         this._searchResultsEl = null;
         this._searchWrapperEl = null;
+        this._uiLanguage = 'en-us';
+        this._schemaDialogEl = null;
+        this._schemaDialogTitleEl = null;
+        this._schemaDialogFooterTextEl = null;
+        this._schemaOpenBtnEl = null;
+        this._schemaCloseBtnEl = null;
+        this._schemaSearchInputEl = null;
+        this._schemaRefreshBtnEl = null;
+        this._schemaListEl = null;
+        this._schemaSearchTimer = null;
+        this._schemaLastRequestId = '';
+        this._schemaLastQuery = '';
         
         this.init();
     }
@@ -113,18 +174,11 @@ class SettingsEditorApp {
             this.hideSearchResults();
         });
 
-        const selectSchemaBtn = document.getElementById('selectSchemaBtn');
-        if (selectSchemaBtn) {
-            selectSchemaBtn.addEventListener('click', (e) => {
-                console.log('Select Schema button clicked');
-                e.preventDefault();
-                e.stopPropagation();
-                this.postMessage({ command: 'selectSchema' });
-            });
-        }
+        this.setupSchemaStoreDialog();
 
         this.debugLog('webview ready: postMessage(ready)', { sessionId: this._sessionId });
         this.postMessage({ command: 'ready', meta: { sessionId: this._sessionId, ts: Date.now() } });
+        this.postMessage({ command: 'getLanguage' });
     }
 
     handleMessage(message) {
@@ -164,6 +218,12 @@ class SettingsEditorApp {
             case 'boundSource':
                 this.updateBoundSource(message.source);
                 break;
+            case 'language':
+                this.handleLanguage(message.language);
+                break;
+            case 'schemaStoreSearchResult':
+                this.handleSchemaStoreSearchResult(message);
+                break;
             case 'updateForm':
                 this.debugLog('recv updateForm', { sessionId: this._sessionId });
                 this.updateFormData(message.data);
@@ -175,6 +235,206 @@ class SettingsEditorApp {
                 this.showError(message.error);
                 break;
         }
+    }
+
+    private handleLanguage(language: any) {
+        const next = language === 'zh-cn' ? 'zh-cn' : 'en-us';
+        this._uiLanguage = next;
+        this.applySchemaStoreUiTexts();
+    }
+
+    private tSchemaStore<K extends keyof (typeof SCHEMA_STORE_UI_TEXT)['en-us']>(key: K): string {
+        const langPack = SCHEMA_STORE_UI_TEXT[this._uiLanguage] || SCHEMA_STORE_UI_TEXT['en-us'];
+        return (langPack as any)[key] || (SCHEMA_STORE_UI_TEXT['en-us'] as any)[key] || String(key);
+    }
+
+    private setupSchemaStoreDialog() {
+        this._schemaOpenBtnEl = document.getElementById('openSchemaDialogBtn') as HTMLButtonElement | null;
+        this._schemaDialogEl = document.getElementById('schemaStoreDialog');
+        this._schemaDialogTitleEl = document.getElementById('schemaStoreDialogTitle');
+        this._schemaDialogFooterTextEl = this._schemaDialogEl
+            ? (this._schemaDialogEl.querySelector('.schema-dialog-footer-text') as HTMLElement | null)
+            : null;
+        this._schemaCloseBtnEl = document.getElementById('schemaStoreCloseBtn') as HTMLButtonElement | null;
+        this._schemaSearchInputEl = document.getElementById('schemaStoreSearchInput') as HTMLInputElement | null;
+        this._schemaRefreshBtnEl = document.getElementById('schemaStoreRefreshBtn') as HTMLButtonElement | null;
+        this._schemaListEl = document.getElementById('schemaStoreList');
+
+        this.applySchemaStoreUiTexts();
+
+        if (this._schemaOpenBtnEl) {
+            this._schemaOpenBtnEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openSchemaStoreDialog();
+            });
+        }
+
+        if (this._schemaCloseBtnEl) {
+            this._schemaCloseBtnEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.closeSchemaStoreDialog();
+            });
+        }
+
+        if (this._schemaDialogEl) {
+            this._schemaDialogEl.addEventListener('click', (e) => {
+                if (e.target === this._schemaDialogEl) {
+                    this.closeSchemaStoreDialog();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            if (!this._schemaDialogEl) return;
+            if (this._schemaDialogEl.classList.contains('hidden')) return;
+            this.closeSchemaStoreDialog();
+        });
+
+        if (this._schemaSearchInputEl) {
+            this._schemaSearchInputEl.addEventListener('input', () => {
+                if (this._schemaSearchTimer !== null) {
+                    window.clearTimeout(this._schemaSearchTimer);
+                }
+                this._schemaSearchTimer = window.setTimeout(() => {
+                    this._schemaSearchTimer = null;
+                    const q = String(this._schemaSearchInputEl?.value || '');
+                    this.requestSchemaStoreSearch(q, 'search');
+                }, 200);
+            });
+        }
+
+        if (this._schemaRefreshBtnEl) {
+            this._schemaRefreshBtnEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                const q = String(this._schemaSearchInputEl?.value || '');
+                this.requestSchemaStoreSearch(q, 'refresh');
+            });
+        }
+    }
+
+    private applySchemaStoreUiTexts() {
+        if (this._schemaOpenBtnEl) this._schemaOpenBtnEl.textContent = this.tSchemaStore('openButton');
+        if (this._schemaDialogTitleEl) this._schemaDialogTitleEl.textContent = this.tSchemaStore('dialogTitle');
+        if (this._schemaSearchInputEl) this._schemaSearchInputEl.placeholder = this.tSchemaStore('searchPlaceholder');
+        if (this._schemaRefreshBtnEl) this._schemaRefreshBtnEl.textContent = this.tSchemaStore('refresh');
+        if (this._schemaDialogFooterTextEl) this._schemaDialogFooterTextEl.textContent = this.tSchemaStore('sourceLabel');
+    }
+
+    private openSchemaStoreDialog() {
+        if (!this._schemaDialogEl) return;
+        this._schemaDialogEl.classList.remove('hidden');
+        if (this._schemaSearchInputEl) {
+            this._schemaSearchInputEl.focus();
+            this._schemaSearchInputEl.select();
+        }
+        const q = String(this._schemaSearchInputEl?.value || '');
+        this.requestSchemaStoreSearch(q, 'search');
+    }
+
+    private closeSchemaStoreDialog() {
+        if (!this._schemaDialogEl) return;
+        this._schemaDialogEl.classList.add('hidden');
+    }
+
+    private newRequestId(): string {
+        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    private requestSchemaStoreSearch(query: string, mode: 'search' | 'refresh') {
+        const requestId = this.newRequestId();
+        this._schemaLastRequestId = requestId;
+        this._schemaLastQuery = String(query || '');
+        this.renderSchemaStoreLoading();
+        this.postMessage({
+            command: mode === 'refresh' ? 'schemaStoreRefresh' : 'schemaStoreSearch',
+            query: this._schemaLastQuery,
+            requestId
+        });
+    }
+
+    private renderSchemaStoreLoading() {
+        if (!this._schemaListEl) return;
+        this._schemaListEl.innerHTML = `
+            <div class="loading">
+                <span class="codicon codicon-loading"></span>
+                <p>${this.escapeHtml(this.tSchemaStore('loading'))}</p>
+            </div>
+        `;
+    }
+
+    private handleSchemaStoreSearchResult(message: any) {
+        const requestId = typeof message?.requestId === 'string' ? message.requestId : '';
+        if (requestId && this._schemaLastRequestId && requestId !== this._schemaLastRequestId) {
+            return;
+        }
+        const schemas = Array.isArray(message?.schemas) ? message.schemas : [];
+        const error = typeof message?.error === 'string' ? message.error : '';
+        this.renderSchemaStoreList(schemas, error);
+    }
+
+    private renderSchemaStoreList(schemas: any[], error: string) {
+        if (!this._schemaListEl) return;
+
+        if (error) {
+            this._schemaListEl.innerHTML = `
+                <div class="no-results">
+                    <span class="codicon codicon-warning"></span>
+                    <p>${this.escapeHtml(this.tSchemaStore('errorPrefix'))}: ${this.escapeHtml(error)}</p>
+                </div>
+            `;
+            return;
+        }
+
+        if (!schemas || schemas.length === 0) {
+            this._schemaListEl.innerHTML = `
+                <div class="no-results">
+                    <span class="codicon codicon-search"></span>
+                    <p>${this.escapeHtml(this.tSchemaStore('noResults'))}</p>
+                </div>
+            `;
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        for (const schema of schemas) {
+            const url = typeof schema?.url === 'string' ? schema.url : '';
+            if (!url) continue;
+
+            const item = document.createElement('div');
+            item.className = 'schema-item';
+            item.dataset.url = url;
+
+            const name = document.createElement('div');
+            name.className = 'schema-name';
+            name.textContent = String(schema?.name || url);
+
+            const description = document.createElement('div');
+            description.className = 'schema-item-description';
+            description.textContent = String(schema?.description || '');
+
+            const fm = Array.isArray(schema?.fileMatch) ? schema.fileMatch.filter((x: any) => typeof x === 'string') : [];
+            if (fm.length > 0) {
+                const fileMatch = document.createElement('div');
+                fileMatch.className = 'schema-item-filematch';
+                fileMatch.textContent = fm.slice(0, 6).join(', ');
+                description.appendChild(fileMatch);
+            }
+
+            item.appendChild(name);
+            item.appendChild(description);
+
+            item.addEventListener('click', () => {
+                this.closeSchemaStoreDialog();
+                this.loadSchema(url);
+            });
+
+            fragment.appendChild(item);
+        }
+
+        this._schemaListEl.innerHTML = '';
+        this._schemaListEl.appendChild(fragment);
     }
 
     private updateBoundSource(source: any) {
