@@ -41,6 +41,8 @@ jobs:
       reason: ${{ steps.version_check.outputs.reason }}
       tag_name: ${{ steps.version_check.outputs.tag_name }}
       publish_target: ${{ steps.version_check.outputs.publish_target }}
+      version: ${{ steps.version_check.outputs.version }}
+      vsix_file: ${{ steps.version_check.outputs.vsix_file }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,7 +75,6 @@ jobs:
 
       - name: Decide publish by tag
         id: version_check
-        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -89,6 +90,50 @@ jobs:
           echo "Force publish: ${force}"
 
           echo "publish_target=${target}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+          # 规范化 VSIX 文件名，并校验 VSIX 内部版本与 package.json 一致
+          shopt -s nullglob
+          vsix_files=( *.vsix )
+          shopt -u nullglob
+
+          if ((${#vsix_files[@]} == 0)); then
+            echo "::error::No .vsix found after packaging"
+            exit 1
+          fi
+          if ((${#vsix_files[@]} != 1)); then
+            echo "::error::Expected exactly 1 .vsix, found ${#vsix_files[@]}: ${vsix_files[*]}"
+            exit 1
+          fi
+
+          vsix_file="${vsix_files[0]}"
+          embedded_version="$(
+            unzip -p "${vsix_file}" extension/package.json \
+              | node -e 'const fs=require("fs"); const s=fs.readFileSync(0,"utf8"); process.stdout.write(JSON.parse(s).version || "");'
+          )"
+
+          echo "VSIX file: ${vsix_file}"
+          echo "VSIX embedded version: ${embedded_version}"
+          if [[ -z "${embedded_version}" ]]; then
+            echo "::error::Failed to read embedded version from ${vsix_file}"
+            exit 1
+          fi
+          if [[ "${embedded_version}" != "${version}" ]]; then
+            echo "::error::VSIX embedded version (${embedded_version}) != package.json version (${version})"
+            exit 1
+          fi
+
+          normalized_vsix="extension.vsix"
+          mv -f "${vsix_file}" "${normalized_vsix}"
+          echo "vsix_file=${normalized_vsix}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+            echo "Pull request event, skipping publish decision"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "reason=pull_request" >> "$GITHUB_OUTPUT"
+            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [[ "${target}" == "none" ]]; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
@@ -124,7 +169,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vsix-package
-          path: "*.vsix"
+          path: "extension.vsix"
           retention-days: 30
 
       - name: Build summary
@@ -133,6 +178,8 @@ jobs:
           echo "should_publish=${{ steps.version_check.outputs.should_publish }}"
           echo "reason=${{ steps.version_check.outputs.reason }}"
           echo "tag_name=${{ steps.version_check.outputs.tag_name }}"
+          echo "version=${{ steps.version_check.outputs.version }}"
+          echo "vsix_file=${{ steps.version_check.outputs.vsix_file }}"
 
   # ====================
   # Publish to VS Code Marketplace
@@ -180,21 +227,27 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           set -euo pipefail
-          vsix_file=$(ls *.vsix | head -n1)
+          vsix_file="${{ needs.build.outputs.vsix_file }}"
+          expected_version="${{ needs.build.outputs.version }}"
+
+          if [[ ! -f "${vsix_file}" ]]; then
+            echo "::error::VSIX file not found: ${vsix_file}"
+            ls -la
+            exit 1
+          fi
+
+          embedded_version="$(
+            unzip -p "${vsix_file}" extension/package.json \
+              | node -e 'const fs=require("fs"); const s=fs.readFileSync(0,"utf8"); process.stdout.write(JSON.parse(s).version || "");'
+          )"
+          echo "VSIX embedded version: ${embedded_version} (expected ${expected_version})"
+          if [[ "${embedded_version}" != "${expected_version}" ]]; then
+            echo "::error::Refusing to publish: VSIX version mismatch"
+            exit 1
+          fi
+
           echo "Publishing ${vsix_file} to VS Code Marketplace..."
-
-          log_file="$(mktemp)"
-          if npx --yes @vscode/vsce@3.6.2 publish --packagePath "${vsix_file}" --pat "$VSCE_PAT" 2>&1 | tee "$log_file"; then
-            exit 0
-          fi
-
-          if grep -qiE "already exists" "$log_file"; then
-            echo "VS Code Marketplace 已存在该版本，视为成功，继续创建 tag。"
-            exit 0
-          fi
-
-          echo "::error::Publish to VS Code Marketplace failed."
-          exit 1
+          npx --yes @vscode/vsce@3.6.2 publish --packagePath "${vsix_file}" --pat "$VSCE_PAT"
 
   # ====================
   # Publish to Open VSX
@@ -242,21 +295,27 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           set -euo pipefail
-          vsix_file=$(ls *.vsix | head -n1)
+          vsix_file="${{ needs.build.outputs.vsix_file }}"
+          expected_version="${{ needs.build.outputs.version }}"
+
+          if [[ ! -f "${vsix_file}" ]]; then
+            echo "::error::VSIX file not found: ${vsix_file}"
+            ls -la
+            exit 1
+          fi
+
+          embedded_version="$(
+            unzip -p "${vsix_file}" extension/package.json \
+              | node -e 'const fs=require("fs"); const s=fs.readFileSync(0,"utf8"); process.stdout.write(JSON.parse(s).version || "");'
+          )"
+          echo "VSIX embedded version: ${embedded_version} (expected ${expected_version})"
+          if [[ "${embedded_version}" != "${expected_version}" ]]; then
+            echo "::error::Refusing to publish: VSIX version mismatch"
+            exit 1
+          fi
+
           echo "Publishing ${vsix_file} to Open VSX..."
-
-          log_file="$(mktemp)"
-          if npx --yes ovsx@0.10.6 publish "${vsix_file}" -p "$OVSX_PAT" 2>&1 | tee "$log_file"; then
-            exit 0
-          fi
-
-          if grep -qiE "already exists|already published" "$log_file"; then
-            echo "Open VSX 已存在该版本，视为成功，继续创建 tag。"
-            exit 0
-          fi
-
-          echo "::error::Publish to Open VSX failed."
-          exit 1
+          npx --yes ovsx@0.10.6 publish "${vsix_file}" -p "$OVSX_PAT"
 
   # ====================
   # Create Git Tag
