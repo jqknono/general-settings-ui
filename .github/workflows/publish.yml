@@ -3,9 +3,11 @@ name: Build and Publish VS Code Extension
 on:
   push:
     branches:
+      - master
       - main
   pull_request:
     branches:
+      - master
       - main
   workflow_dispatch:
     inputs:
@@ -25,6 +27,10 @@ on:
           - none
         default: all
 
+env:
+  PUBLISH_TARGET: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || 'all' }}
+  FORCE_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_publish || 'false' }}
+
 jobs:
   # ====================
   # Build Job
@@ -33,7 +39,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       should_publish: ${{ steps.version_check.outputs.should_publish }}
       reason: ${{ steps.version_check.outputs.reason }}
@@ -48,56 +54,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Decide publish by version
-        id: version_check
-        if: github.event_name != 'pull_request'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Get current version from package.json
-          version=$(node -p 'require("./package.json").version')
-          tag_name="v${version}"
-
-          echo "Version: ${version}"
-          echo "Tag: ${tag_name}"
-
-          # Check manual target selection
-          target="${{ github.event.inputs.target }}"
-          if [[ "${target}" == "none" ]]; then
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "reason=target_none" >> "$GITHUB_OUTPUT"
-            echo "tag_name=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Force publish mode
-          force="${{ github.event.inputs.force_publish }}"
-          if [[ "${force}" == "true" ]]; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "reason=force_publish" >> "$GITHUB_OUTPUT"
-            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Fetch all tags to check if version tag already exists
-          git fetch --tags --force
-
-          # Check if tag already exists
-          if git rev-parse "${tag_name}" >/dev/null 2>&1; then
-            echo "Tag ${tag_name} already exists, skipping publish"
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "reason=tag_exists" >> "$GITHUB_OUTPUT"
-            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # New version - publish and create tag
-          echo "New version ${version} detected, will publish"
-          echo "should_publish=true" >> "$GITHUB_OUTPUT"
-          echo "reason=new_version" >> "$GITHUB_OUTPUT"
-          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
@@ -117,6 +73,53 @@ jobs:
           echo "Packaging version: ${version}"
           npx --yes @vscode/vsce@3.6.2 package
           ls -la *.vsix
+
+      - name: Decide publish by tag
+        id: version_check
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version=$(node -p 'require("./package.json").version')
+          tag_name="v${version}"
+          target="${PUBLISH_TARGET:-all}"
+          force="${FORCE_PUBLISH:-false}"
+
+          echo "Version: ${version}"
+          echo "Tag: ${tag_name}"
+          echo "Target: ${target}"
+          echo "Force publish: ${force}"
+
+          if [[ "${target}" == "none" ]]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "reason=target_none" >> "$GITHUB_OUTPUT"
+            echo "tag_name=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${force}" == "true" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=force_publish" >> "$GITHUB_OUTPUT"
+            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 确保 tag 列表是最新的
+          git fetch --tags --force
+
+          if git show-ref --tags --verify --quiet "refs/tags/${tag_name}"; then
+            echo "Tag ${tag_name} already exists, skipping publish"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "reason=tag_exists" >> "$GITHUB_OUTPUT"
+            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "New version ${version} detected (no tag ${tag_name}), will publish"
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          echo "reason=new_version" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
@@ -141,7 +144,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' &&
       needs.build.outputs.should_publish == 'true' &&
-      (github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'vscode')
+      (env.PUBLISH_TARGET == 'all' || env.PUBLISH_TARGET == 'vscode')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -177,9 +180,22 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
+          set -euo pipefail
           vsix_file=$(ls *.vsix | head -n1)
           echo "Publishing ${vsix_file} to VS Code Marketplace..."
-          npx --yes @vscode/vsce@3.6.2 publish --packagePath "${vsix_file}" --pat "$VSCE_PAT"
+
+          log_file="$(mktemp)"
+          if npx --yes @vscode/vsce@3.6.2 publish --packagePath "${vsix_file}" --pat "$VSCE_PAT" 2>&1 | tee "$log_file"; then
+            exit 0
+          fi
+
+          if grep -qiE "already exists" "$log_file"; then
+            echo "VS Code Marketplace 已存在该版本，视为成功，继续创建 tag。"
+            exit 0
+          fi
+
+          echo "::error::Publish to VS Code Marketplace failed."
+          exit 1
 
   # ====================
   # Publish to Open VSX
@@ -190,7 +206,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' &&
       needs.build.outputs.should_publish == 'true' &&
-      (github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'openvsx')
+      (env.PUBLISH_TARGET == 'all' || env.PUBLISH_TARGET == 'openvsx')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -226,9 +242,22 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
+          set -euo pipefail
           vsix_file=$(ls *.vsix | head -n1)
           echo "Publishing ${vsix_file} to Open VSX..."
-          npx --yes ovsx@0.10.6 publish "${vsix_file}" -p "$OVSX_PAT"
+
+          log_file="$(mktemp)"
+          if npx --yes ovsx@0.10.6 publish "${vsix_file}" -p "$OVSX_PAT" 2>&1 | tee "$log_file"; then
+            exit 0
+          fi
+
+          if grep -qiE "already exists|already published" "$log_file"; then
+            echo "Open VSX 已存在该版本，视为成功，继续创建 tag。"
+            exit 0
+          fi
+
+          echo "::error::Publish to Open VSX failed."
+          exit 1
 
   # ====================
   # Create Git Tag
@@ -251,9 +280,16 @@ jobs:
 
       - name: Create and push tag
         run: |
+          set -euo pipefail
           tag_name="${{ needs.build.outputs.tag_name }}"
           if [[ -z "${tag_name}" ]]; then
             echo "No tag name provided, skipping"
+            exit 0
+          fi
+
+          git fetch --tags --force
+          if git show-ref --tags --verify --quiet "refs/tags/${tag_name}"; then
+            echo "Tag ${tag_name} already exists, skipping"
             exit 0
           fi
 
