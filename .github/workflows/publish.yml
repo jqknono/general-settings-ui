@@ -48,26 +48,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run compile
-
-      - name: Package extension
-        run: npx --yes @vscode/vsce@3.6.2 package
-
-      - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vsix-package
-          path: "*.vsix"
-          retention-days: 30
 
       - name: Decide publish by version
         id: version_check
@@ -79,6 +59,9 @@ jobs:
           # Get current version from package.json
           version=$(node -p 'require("./package.json").version')
           tag_name="v${version}"
+
+          echo "Version: ${version}"
+          echo "Tag: ${tag_name}"
 
           # Check manual target selection
           target="${{ github.event.inputs.target }}"
@@ -99,7 +82,7 @@ jobs:
           fi
 
           # Fetch all tags to check if version tag already exists
-          git fetch --tags
+          git fetch --tags --force
 
           # Check if tag already exists
           if git rev-parse "${tag_name}" >/dev/null 2>&1; then
@@ -116,7 +99,33 @@ jobs:
           echo "reason=new_version" >> "$GITHUB_OUTPUT"
           echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 
-      - name: Build info
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run compile
+
+      - name: Clean old VSIX files
+        run: rm -f *.vsix
+
+      - name: Package extension
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          echo "Packaging version: ${version}"
+          npx --yes @vscode/vsce@3.6.2 package
+          ls -la *.vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-package
+          path: "*.vsix"
+          retention-days: 30
+
+      - name: Build summary
         if: github.event_name != 'pull_request'
         run: |
           echo "should_publish=${{ steps.version_check.outputs.should_publish }}"
