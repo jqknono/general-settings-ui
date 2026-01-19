@@ -27,10 +27,6 @@ on:
           - none
         default: all
 
-env:
-  PUBLISH_TARGET: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || 'all' }}
-  FORCE_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_publish || 'false' }}
-
 jobs:
   # ====================
   # Build Job
@@ -44,6 +40,7 @@ jobs:
       should_publish: ${{ steps.version_check.outputs.should_publish }}
       reason: ${{ steps.version_check.outputs.reason }}
       tag_name: ${{ steps.version_check.outputs.tag_name }}
+      publish_target: ${{ steps.version_check.outputs.publish_target }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,13 +80,15 @@ jobs:
 
           version=$(node -p 'require("./package.json").version')
           tag_name="v${version}"
-          target="${PUBLISH_TARGET:-all}"
-          force="${FORCE_PUBLISH:-false}"
+          target="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || 'all' }}"
+          force="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_publish || 'false' }}"
 
           echo "Version: ${version}"
           echo "Tag: ${tag_name}"
           echo "Target: ${target}"
           echo "Force publish: ${force}"
+
+          echo "publish_target=${target}" >> "$GITHUB_OUTPUT"
 
           if [[ "${target}" == "none" ]]; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
@@ -144,7 +143,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' &&
       needs.build.outputs.should_publish == 'true' &&
-      (env.PUBLISH_TARGET == 'all' || env.PUBLISH_TARGET == 'vscode')
+      (needs.build.outputs.publish_target == 'all' || needs.build.outputs.publish_target == 'vscode')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -206,7 +205,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' &&
       needs.build.outputs.should_publish == 'true' &&
-      (env.PUBLISH_TARGET == 'all' || env.PUBLISH_TARGET == 'openvsx')
+      (needs.build.outputs.publish_target == 'all' || needs.build.outputs.publish_target == 'openvsx')
     runs-on: ubuntu-latest
     permissions:
       contents: read
