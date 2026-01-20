@@ -69,6 +69,8 @@ class SettingsEditorApp {
     private _dirtyCollectionPaths: Set<string>;
     private _formSyncTimer: number | null;
     private _formSyncDebounceMs: number;
+    private _pendingFormSyncReason: string | null;
+    private _pendingFormSyncHintPath: string | undefined;
     private _sessionId: string;
     private _syncRev: number;
     private _lastSentRev: number;
@@ -104,8 +106,10 @@ class SettingsEditorApp {
         this._dirtyPaths = new Set<string>();
         this._dirtyCollectionPaths = new Set<string>();
         this._formSyncTimer = null;
-        // 用户期望“任何改动立即同步到源 JSON”，这里不再做输入防抖
-        this._formSyncDebounceMs = 0;
+        // editor 与 visual editor 的相互同步：输入防抖 1 秒
+        this._formSyncDebounceMs = 1000;
+        this._pendingFormSyncReason = null;
+        this._pendingFormSyncHintPath = undefined;
         this._sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         this._syncRev = 0;
         this._lastSentRev = 0;
@@ -427,6 +431,9 @@ class SettingsEditorApp {
 
             item.addEventListener('click', () => {
                 this.closeSchemaStoreDialog();
+                // 选择 Schema 后，立即把 "$schema" 写回绑定的源 JSON
+                this.currentSchemaUrl = url;
+                this.scheduleFormSync('select-schema', '/$schema');
                 this.loadSchema(url);
             });
 
@@ -463,6 +470,15 @@ class SettingsEditorApp {
 
             if (typeof schemaUrlOrObject === 'string') {
                 schemaUrl = schemaUrlOrObject;
+                // 兜底：任何通过 URL 选择/加载 schema 的入口，都应把 "$schema" 同步写回源 JSON
+                // （实际落盘会受 1 秒防抖影响）
+                this.currentSchemaUrl = schemaUrl;
+                const current = (this.data && typeof this.data === 'object' && !Array.isArray(this.data))
+                    ? (this.data as any).$schema
+                    : undefined;
+                if (schemaUrl && current !== schemaUrl) {
+                    this.scheduleFormSync('select-schema', '/$schema');
+                }
                 this.postMessage({
                     command: 'loadSchema',
                     schemaUrl: schemaUrl
@@ -476,6 +492,15 @@ class SettingsEditorApp {
             this.schema = schema;
             this.currentSchemaUrl = schemaUrl;
             console.log('Schema loaded, currentSchemaUrl:', this.currentSchemaUrl);
+
+            // 兜底：schema 已加载完成（可能来自扩展侧选择/命令面板），确保 "$schema" 与当前 schemaUrl 一致
+            const nextSchemaUrl = typeof schemaUrl === 'string' ? schemaUrl.trim() : '';
+            const current = (this.data && typeof this.data === 'object' && !Array.isArray(this.data))
+                ? (this.data as any).$schema
+                : undefined;
+            if (nextSchemaUrl && current !== nextSchemaUrl) {
+                this.scheduleFormSync('schema-loaded', '/$schema');
+            }
 
             const titleElement = document.getElementById('schemaTitle');
             const descriptionElement = document.getElementById('schemaDescription');
@@ -540,7 +565,7 @@ class SettingsEditorApp {
             }
             this.applyControlValidations(target);
             this.markDirtyFromControl(target);
-            this.handleFormChange('change', target.dataset.path);
+            this.scheduleFormSync('change', target.dataset.path);
         });
 
         // 输入时立即同步（默认 change 只会在失焦后触发）
@@ -566,7 +591,7 @@ class SettingsEditorApp {
             if (type === 'boolean' || tag === 'SELECT') return;
 
             this.markDirtyFromControl(target);
-            this.handleFormChange('input', target.dataset.path);
+            this.scheduleFormSync('input', target.dataset.path);
         });
 
         formEditor.addEventListener('click', (e) => {
@@ -578,7 +603,7 @@ class SettingsEditorApp {
                 const arrayPath = addBtn.getAttribute('data-array-path') || '';
                 if (arrayPath) {
                     this.addArrayItem(arrayPath);
-                    this.handleFormChange('array-add', arrayPath);
+                    this.scheduleFormSync('array-add', arrayPath);
                 }
                 return;
             }
@@ -589,7 +614,7 @@ class SettingsEditorApp {
                 const itemEl = target.closest('.array-item') as HTMLElement | null;
                 if (arrayPath && itemEl) {
                     this.removeArrayItem(arrayPath, itemEl);
-                    this.handleFormChange('array-remove', arrayPath);
+                    this.scheduleFormSync('array-remove', arrayPath);
                 }
                 return;
             }
@@ -599,7 +624,7 @@ class SettingsEditorApp {
                 const mapPath = mapAddBtn.getAttribute('data-map-path') || '';
                 if (mapPath) {
                     this.addMapItem(mapPath);
-                    this.handleFormChange('map-add', mapPath);
+                    this.scheduleFormSync('map-add', mapPath);
                 }
                 return;
             }
@@ -610,7 +635,7 @@ class SettingsEditorApp {
                 const itemEl = target.closest('.map-item') as HTMLElement | null;
                 if (mapPath && itemEl) {
                     this.removeMapItem(mapPath, itemEl);
-                    this.handleFormChange('map-remove', mapPath);
+                    this.scheduleFormSync('map-remove', mapPath);
                 }
             }
         });
@@ -660,7 +685,7 @@ class SettingsEditorApp {
 
             const dirtyPaths = Array.from(this._dirtyPaths);
             const dirtyCollections = Array.from(this._dirtyCollectionPaths);
-            const json = JSON.stringify(this.data, null, 2);
+            const json = this.stringifyJsonForWrite(this.data);
             this._lastSentJsonText = json;
             this._lastSentJsonTs = Date.now();
 
@@ -682,19 +707,38 @@ class SettingsEditorApp {
         }
     }
 
-    private scheduleFormSync() {
+    private scheduleFormSync(reason?: string, hintPath?: string) {
+        this._pendingFormSyncReason = reason ? String(reason) : 'debounced';
+        this._pendingFormSyncHintPath = hintPath;
+
         if (this._formSyncTimer !== null) {
             window.clearTimeout(this._formSyncTimer);
         }
 
         this._formSyncTimer = window.setTimeout(() => {
             this._formSyncTimer = null;
-            this.handleFormChange('debounced');
+            const nextReason = this._pendingFormSyncReason || 'debounced';
+            const nextHintPath = this._pendingFormSyncHintPath;
+            this._pendingFormSyncReason = null;
+            this._pendingFormSyncHintPath = undefined;
+            this.handleFormChange(nextReason, nextHintPath);
         }, this._formSyncDebounceMs);
     }
 
     private buildUpdatedJson(): any {
         const updated: any = this.cloneJson(this._baseData || {});
+
+        // 如果用户通过 UI 选择了 Schema，则无论表单是否改动，都应把 "$schema" 落到源 JSON 中。
+        // 这样可以避免在 ack 返回前，下一次表单变更基于旧 baseData 生成 JSON 时把 "$schema" 覆盖掉。
+        if (
+            typeof this.currentSchemaUrl === 'string' &&
+            this.currentSchemaUrl.trim() &&
+            updated &&
+            typeof updated === 'object' &&
+            !Array.isArray(updated)
+        ) {
+            updated.$schema = this.currentSchemaUrl.trim();
+        }
 
         for (const path of this._dirtyPaths) {
             if (this.isUnderDirtyCollection(path)) continue;
@@ -991,6 +1035,26 @@ class SettingsEditorApp {
 
     private cloneJson(value: any): any {
         return JSON.parse(JSON.stringify(value ?? {}));
+    }
+
+    private stringifyJsonForWrite(value: any): string {
+        // 仅处理顶层对象字段顺序：把 "$schema" 放到最前面，便于人类阅读/符合常见约定。
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return JSON.stringify(value, null, 2);
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(value, '$schema')) {
+            return JSON.stringify(value, null, 2);
+        }
+
+        const ordered: any = {};
+        ordered.$schema = (value as any).$schema;
+        for (const key of Object.keys(value)) {
+            if (key === '$schema') continue;
+            ordered[key] = (value as any)[key];
+        }
+
+        return JSON.stringify(ordered, null, 2);
     }
 
     private markDirtyFromControl(control: HTMLElement) {
@@ -1713,7 +1777,7 @@ class SettingsEditorApp {
         const collectionRoot = this.getCollectionRootForControl(selector as any);
         if (collectionRoot) {
             this._dirtyCollectionPaths.add(collectionRoot);
-            this.handleFormChange('anyof-change', collectionRoot);
+            this.scheduleFormSync('anyof-change', collectionRoot);
             return;
         }
 
@@ -1723,7 +1787,7 @@ class SettingsEditorApp {
             if (!p) continue;
             this._dirtyPaths.add(p);
         }
-        this.handleFormChange('anyof-change', root.getAttribute('data-anyof-path') || '');
+        this.scheduleFormSync('anyof-change', root.getAttribute('data-anyof-path') || '');
     }
 
     private collectCollectionValue(path: string): any[] | Record<string, any> | undefined {

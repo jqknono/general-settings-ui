@@ -183,7 +183,7 @@ export class WebviewProvider implements vscode.Disposable {
                     clearTimeout(existing);
                 }
 
-                // 轻量防抖：合并同一轮输入产生的多次 change 事件，同时保持“几乎立即”的体验
+                // editor -> webview 同步防抖：合并同一轮输入产生的多次 change 事件（1 秒）
 	                const timer = setTimeout(async () => {
 	                    this._docToWebviewSyncTimers.delete(panelId);
 
@@ -223,7 +223,7 @@ export class WebviewProvider implements vscode.Disposable {
                         command: 'loadJson',
                         json: JSON.stringify(jsonData, null, 2)
                     });
-                }, 50);
+                }, 1000);
 
                 this._docToWebviewSyncTimers.set(panelId, timer);
             },

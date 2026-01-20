@@ -1,56 +1,7 @@
 {
-  "$schema": "claude-code-settings.json",
-  "apiKeyHelper": "/bin/generate_temp_api_key.sh",
-  "awsCredentialExport": "213",
-  "awsAuthRefresh": "123",
-  "cleanupPeriodDays": 1,
-  "env": {
-    "AAAA": "1231111"
-  },
-  "includeCoAuthoredBy": true,
+  "$schema": "https://www.schemastore.org/claude-code-settings.json",
+  "model": "opus",
   "permissions": {
-    "defaultMode": "bypassPermissions",
-    "disableBypassPermissionsMode": "disable",
-    "deny": [
-      "12"
-    ],
-    "allow": [
-      "123"
-    ],
-    "additionalDirectories": [
-      "1212"
-    ]
-  },
-  "enableAllProjectMcpServers": true,
-  "forceLoginMethod": "console",
-  "sandbox": {
-    "ignoreViolations": {
-      "1": [
-        "1",
-        "2"
-      ],
-      "2": [
-        "3",
-        "4"
-      ]
-    }
-  },
-  "extraKnownMarketplaces": {
-    "1": {
-      "source": {
-        "source": "github",
-        "repo": "12"
-      }
-    }
-  },
-  "skippedMarketplaces": [
-    "12"
-  ],
-  "skippedPlugins": [
-    "12"
-  ],
-  "forceLoginOrgUUID": "1",
-  "enabledMcpjsonServers": [
-    "1111"
-  ]
+    "defaultMode": "default"
+  }
 }
