@@ -4,6 +4,11 @@ A powerful VSCode extension that converts JSON Schema into a visual settings edi
 
 ![demo](https://i.imgur.com/xjTR6l8.gif)
 
+**Download from the following marketplaces:**
+
+- [![VSCode Marketplace](https://img.shields.io/visual-studio-marketplace/v/techfetch-dev.general-settings-ui?style=flat-square&label=VSCode%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=techfetch-dev.general-settings-ui)
+- [![OpenVSX](https://img.shields.io/badge/OpenVSX-download-42b883?style=flat-square&logo=eclipseide)](https://open-vsx.org/extension/techfetch-dev/general-settings-ui)
+
 ## Features
 
 ### 🎯 Core Features
@@ -26,8 +31,9 @@ A powerful VSCode extension that converts JSON Schema into a visual settings edi
 ## Installation & Usage
 
 ### Installation
-1. Search for "JSON Schema Store GUI" in the VSCode Marketplace and install
-2. Or download and install the .vsix file manually
+1. **[VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=techfetch-dev.general-settings-ui)**: Search for "JSON Schema Store GUI" and install
+2. **[OpenVSX](https://open-vsx.org/extension/techfetch-dev/general-settings-ui)**: Alternative marketplace for VSCode extensions
+3. Or download and install the .vsix file manually
 
 ### How to Use
 1. Open the Command Palette (Ctrl+Shift+P)
