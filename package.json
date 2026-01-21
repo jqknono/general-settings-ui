@@ -2,7 +2,7 @@
   "name": "general-settings-ui",
   "displayName": "JSON Schema Store GUI",
   "description": "Fetch JSON Schemas from SchemaStore.org and edit them with a visual UI",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "techfetch-dev",
   "engines": {
     "vscode": "^1.85.0"
