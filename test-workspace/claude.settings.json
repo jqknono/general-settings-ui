@@ -2,6 +2,7 @@
   "$schema": "https://www.schemastore.org/claude-code-settings.json",
   "model": "opus",
   "permissions": {
-    "defaultMode": "default"
-  }
+    "defaultMode": "bypassPermissions"
+  },
+  "includeCoAuthoredBy": false
 }

@@ -843,6 +843,7 @@ export class WebviewProvider implements vscode.Disposable {
             this._log('info', 'Settings HTML generated', { length: settingsHtml.length, schemaUrl });
             webview.postMessage({
                 command: 'loadSchema',
+                schemaUrl,
                 schema: schema,
                 settingsHtml: settingsHtml
             });

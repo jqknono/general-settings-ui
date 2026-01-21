@@ -65,6 +65,7 @@ class SettingsEditorApp {
     data: any;
     currentSchemaUrl: string | null;
     private _baseData: any;
+    private _hasLoadedJson: boolean;
     private _dirtyPaths: Set<string>;
     private _dirtyCollectionPaths: Set<string>;
     private _formSyncTimer: number | null;
@@ -103,6 +104,7 @@ class SettingsEditorApp {
         this.schema = null;
         this.data = {};
         this._baseData = {};
+        this._hasLoadedJson = false;
         this._dirtyPaths = new Set<string>();
         this._dirtyCollectionPaths = new Set<string>();
         this._formSyncTimer = null;
@@ -193,7 +195,16 @@ class SettingsEditorApp {
                     hasSchema: !!message.schema,
                     settingsHtmlLength: message.settingsHtml ? String(message.settingsHtml).length : 0
                 });
-                this.loadSchema(message.schema, message.settingsHtml);
+                {
+                    const schemaUrl = typeof message?.schemaUrl === 'string' ? message.schemaUrl.trim() : '';
+                    const schema = message?.schema;
+                    if (schema && typeof schema === 'object' && !Array.isArray(schema) && schemaUrl) {
+                        // 扩展侧返回的 schema 是纯 JSON（通常不带 url 字段），这里补上以便后续正确同步 "$schema"
+                        this.loadSchema({ ...(schema as any), url: schemaUrl }, message.settingsHtml);
+                    } else {
+                        this.loadSchema(schema, message.settingsHtml);
+                    }
+                }
                 break;
             case 'loadJson':
                 this.debugLog('recv loadJson', {
@@ -708,8 +719,24 @@ class SettingsEditorApp {
     }
 
     private scheduleFormSync(reason?: string, hintPath?: string) {
-        this._pendingFormSyncReason = reason ? String(reason) : 'debounced';
-        this._pendingFormSyncHintPath = hintPath;
+        const nextReason = reason ? String(reason) : 'debounced';
+        const nextHintPath = hintPath;
+
+        // "$schema" 是 schema 绑定的关键信息：用户选择 schema 后应立刻写回源 JSON，
+        // 但在首次 loadJson 之前（baseData 还未初始化）不能立即写回，否则可能覆盖源 JSON 内容。
+        if (nextHintPath === '/$schema' && this._hasLoadedJson) {
+            if (this._formSyncTimer !== null) {
+                window.clearTimeout(this._formSyncTimer);
+                this._formSyncTimer = null;
+            }
+            this._pendingFormSyncReason = null;
+            this._pendingFormSyncHintPath = undefined;
+            this.handleFormChange(nextReason, nextHintPath);
+            return;
+        }
+
+        this._pendingFormSyncReason = nextReason;
+        this._pendingFormSyncHintPath = nextHintPath;
 
         if (this._formSyncTimer !== null) {
             window.clearTimeout(this._formSyncTimer);
@@ -977,6 +1004,7 @@ class SettingsEditorApp {
             const parsed = JSON.parse(json);
             this.data = parsed;
             this._baseData = this.cloneJson(parsed);
+            this._hasLoadedJson = true;
             this._dirtyPaths.clear();
             this._dirtyCollectionPaths.clear();
             this.debugLog('updateData: reset baseData & dirty sets', {

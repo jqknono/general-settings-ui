@@ -46,6 +46,10 @@ A powerful VSCode extension that converts JSON Schema into a visual settings edi
 - `Enter`: Jump to the selected setting
 - `Esc`: Close the results popup (or clear the query if already closed)
 
+## Demo
+
+![操作示例](https://github.com/jqknono/general-settings-ui/blob/main/assets/example.gif)
+
 ## Supported Schema Types
 
 This extension supports all JSON schemas provided by SchemaStore.org, including but not limited to:
