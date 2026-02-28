@@ -113,8 +113,14 @@ json-schema-store-gui/
 
 ### Build & Release
 1. Compile: `npm run compile`
-2. Package: `vsce package`
-3. Publish: `vsce publish`
+2. Package: `npm run package`
+3. Publish to both marketplaces: `npm run publish`
+4. Publish to VS Code Marketplace only: `npm run publish:vscode`
+5. Publish to Open VSX only: `npm run publish:openvsx`
+
+Before publishing, set tokens in your environment:
+- `VSCE_PAT` for VS Code Marketplace
+- `OVSX_PAT` for Open VSX
 
 ## Tech Stack
 

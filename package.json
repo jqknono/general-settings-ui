@@ -133,11 +133,10 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package",
-    "publish": "./scripts/publish.sh",
-    "publish:vscode": "./scripts/publish.sh --target vscode",
-    "publish:openvsx": "./scripts/publish.sh --target openvsx",
-    "publish:dry-run": "./scripts/publish.sh --dry-run"
+    "package": "npx --yes @vscode/vsce@3.6.2 package",
+    "publish": "npm run publish:vscode && npm run publish:openvsx",
+    "publish:vscode": "npx --yes @vscode/vsce@3.6.2 publish",
+    "publish:openvsx": "npx --yes ovsx@0.10.6 publish"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
